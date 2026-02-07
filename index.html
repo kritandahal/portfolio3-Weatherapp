@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weather App</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=humidity_mid" />
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; color: white; }
+body {
+    font-family: 'Arial', sans-serif;
+    background: url('a.jpg') no-repeat center center fixed;
+    background-size: cover;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: white;
+    position: relative;
+}
+body::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: -1;
+}
+.main {
+    width: 100%; max-width: 600px;
+    background-color: rgba(0, 0, 0, 0.7);
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    text-align: center;
+    margin: 20px;
+}
+.search { display: flex; justify-content: center; margin-bottom: 20px; }
+.search input {
+    width: 70%; padding: 10px; border: 1px solid #ddd; border-radius: 5px;
+    font-size: 16px; background-color: rgba(255,255,255,0.3); color: white;
+}
+.search button {
+    padding: 10px 15px; background-color: #4CAF50; color: white;
+    border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-left: 10px;
+}
+.search button:hover { background-color: #45a049; }
+.error { font-size: 16px; margin-top: 10px; color: red; display: none; }
+.location-date { margin-bottom: 20px; }
+.city { font-size: 24px; font-weight: bold; }
+.date { font-size: 18px; color: #bbb; }
+.weather-info { margin-bottom: 20px; display: none; }
+.weather-img { width: 100px; height: 100px; margin: 10px 0; }
+.temp { font-size: 48px; font-weight: bold; color: #fff; }
+.weather-main { font-size: 22px; font-weight: 600; color: #fff; }
+.weather-second { font-size: 18px; color: #bbb; }
+.summary-info { display: flex; justify-content: space-around; margin-top: 20px; }
+.humidity-pressure, .wind-info { text-align: center; }
+.humidity-pressure .logo, .wind-info .logo { font-size: 36px; margin-bottom: 10px; }
+.humidity-pressure h4, .wind-info h4 { font-size: 18px; font-weight: bold; color: #fff; margin-top: 10px; }
+.humidity-pressure p, .wind-info p { font-size: 16px; color: #bbb; }
+@media (max-width: 600px) {
+    .main { padding: 15px; width: 100%; }
+    .search input { width: 60%; }
+    .summary-info { flex-direction: column; align-items: center; }
+    .humidity-pressure, .wind-info { margin-bottom: 20px; }
+}
+</style>
+</head>
+<body>
+<div class="main">
+    <section>
+        <div class="search"> 
+            <input type="text" placeholder="Enter city name" spellcheck="false">
+            <button>Search</button>
+        </div>
+        <div class="location-date">
+            <h5 class="city"></h5>
+            <h5 class="date"></h5>
+        </div>
+        <div class="weather-info">
+            <img src="" alt="Weather Icon" class="weather-img">
+            <h2 class="temp"></h2>
+            <h2 class="weather-main"></h2>
+            <h2 class="weather-second"></h2>
+        </div>
+    </section>
+    <section class="summary-info">
+        <div class="humidity-pressure">
+            <div class="logo"><i class='bx bxs-droplet-half'></i></div>
+            <h4>Humidity</h4>
+            <p class="humidity"></p>
+            <br>
+            <i class='bx bx-bar-chart'></i>
+            <h4>Pressure</h4>
+            <p class="pressure"></p>
+        </div>
+        <div class="wind-info">
+            <i class='bx bxl-tailwind-css'></i>
+            <h4>Wind speed / direction</h4>
+            <p class="speed"></p>
+            <p class="direction"></p>
+        </div>
+    </section>
+    <div class="error">City not found!</div>
+</div>
+
+<script>
+const searchBox = document.querySelector(".search input");
+const searchBtn = document.querySelector(".search button");
+
+const DEFAULT_CITY = "Manchester";
+
+function storageKey(city){ return 'weather_' + city.toLowerCase(); }
+
+function getSavedCities(){
+    try { return JSON.parse(localStorage.getItem('weather_cities') || '[]'); } catch(e){ return []; }
+}
+
+function saveCityToList(city){
+    const list = getSavedCities();
+    const lower = city.toLowerCase();
+    if (!list.includes(lower)){
+        list.push(lower);
+        localStorage.setItem('weather_cities', JSON.stringify(list));
+    }
+}
+
+async function fetchAndStore(city){
+    const url = `connection.php?q=${encodeURIComponent(city)}`;
+    try{
+        const res = await fetch(url);
+        if (!res.ok){
+            document.querySelector('.error').style.display = 'block';
+            document.querySelector('.weather-info').style.display = 'none';
+            return null;
+        }
+        const data = await res.json();
+        if (data.error){
+            document.querySelector('.error').style.display = 'block';
+            document.querySelector('.weather-info').style.display = 'none';
+            return null;
+        }
+        const key = storageKey(data.city || city);
+        localStorage.setItem(key, JSON.stringify(data));
+        saveCityToList(data.city || city);
+        localStorage.setItem("lastCity", data.city || city); // save last searched/default city
+        return data;
+    }catch(err){
+        console.error(err);
+        document.querySelector('.error').style.display = 'block';
+        return null;
+    }
+}
+
+function displayFromStorage(cityLower){
+    const raw = localStorage.getItem(storageKey(cityLower));
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    displayWeather(data);
+}
+
+function displayWeather(data){
+    document.querySelector('.city').textContent = data.city || '';
+    document.querySelector('.temp').textContent = (data.temp !== null ? Math.round(data.temp) + '°C' : '') ;
+    document.querySelector('.weather-main').textContent = data.weather_main || '';
+    document.querySelector('.weather-second').textContent = data.description || '';
+    document.querySelector('.humidity').textContent = (data.humidity !== null ? data.humidity + '%' : '');
+    document.querySelector('.pressure').textContent = (data.pressure !== null ? data.pressure + ' hPa' : '');
+    document.querySelector('.speed').textContent = (data.wind_speed !== null ? data.wind_speed + ' m/s' : '');
+    document.querySelector('.direction').textContent = (data.wind_deg !== null ? data.wind_deg + '°' : '');
+    if (data.icon) document.querySelector('.weather-img').src = `https://openweathermap.org/img/wn/${data.icon}@2x.png`;
+    document.querySelector('.date').textContent = data.last_updated || '';
+    document.querySelector('.error').style.display = 'none';
+    document.querySelector('.weather-info').style.display = 'block';
+}
+
+// Event listeners
+searchBtn.addEventListener('click', async () => {
+    const city = searchBox.value.trim();
+    if (!city) return;
+    const data = await fetchAndStore(city);
+    if (data) displayWeather(data);
+    searchBox.value = '';
+});
+
+searchBox.addEventListener('keypress', async e => {
+    if (e.key === 'Enter'){
+        const city = searchBox.value.trim();
+        if (!city) return;
+        const data = await fetchAndStore(city);
+        if (data) displayWeather(data);
+        searchBox.value = '';
+    }
+});
+
+// On load: fetch fresh default city if storage empty, else load from storage
+(async () => {
+    let lastCity = localStorage.getItem("lastCity") || DEFAULT_CITY;
+    saveCityToList(lastCity);
+
+    if (localStorage.getItem(storageKey(lastCity))) {
+        // If data exists in storage, show it
+        displayFromStorage(lastCity);
+    } else {
+        // First load or cleared storage: fetch from server
+        const data = await fetchAndStore(lastCity);
+        if (data) displayWeather(data);
+    }
+})();
+</script>
+</body>
+</html>
